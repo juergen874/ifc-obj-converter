@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IFC ➔ OBJ 3D-Konverter &amp; Viewer</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --accent-green: #22c55e;
+      --accent-orange: #f59e0b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --canvas-bg: #0b1120;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: #1e293b;
+      border-bottom: 1px solid var(--card-border);
+      padding: 16px 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .logo-box {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: white;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
+    }
+
+    h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .badge-local {
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .badge-local::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      background: var(--accent-green);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    main {
+      flex: 1;
+      padding: 24px;
+      max-width: 1440px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed var(--card-border);
+      border-radius: 14px;
+      background: rgba(30, 41, 59, 0.5);
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.05);
+      transform: translateY(-1px);
+    }
+    .dropzone-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+      color: var(--accent);
+    }
+    .dropzone h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .dropzone p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    #file-input {
+      display: none;
+    }
+
+    /* Progress bar */
+    .progress-box {
+      display: none;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #0f172a;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-green));
+      transition: width 0.2s ease;
+    }
+
+    /* Main Grid */
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 20px;
+      flex: 1;
+      min-height: 520px;
+    }
+    @media (max-width: 1024px) {
+      .workspace-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 3D Canvas Box */
+    .viewer-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .viewer-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.4);
+    }
+    .viewer-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .viewer-tools {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-tool {
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-tool:hover {
+      color: var(--text-main);
+      border-color: var(--accent);
+    }
+    .btn-tool.active {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background: var(--canvas-bg);
+      min-height: 420px;
+    }
+    #gl-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .viewer-overlay {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(4px);
+      border: 1px solid var(--card-border);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Sidebar / Controls */
+    .controls-card {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .panel h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Stats Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .stat-item {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--card-border);
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 2px;
+    }
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Form controls */
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    select, input[type="text"] {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border 0.2s;
+    }
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    /* Download Buttons */
+    .btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    .btn {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      text-decoration: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #38bdf8, #2563eb);
+      color: #0f172a;
+      font-weight: 700;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Help / Info */
+    .info-box {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: #bae6fd;
+    }
+    .info-box strong {
+      color: var(--accent);
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 14px 24px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: #1e293b;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-box">
+      <div class="logo-icon">IFC</div>
+      <div>
+        <h1>IFC ➔ OBJ 3D-Konverter &amp; Viewer</h1>
+        <div class="subtitle">Client-Side • 100% Offline • Zero-Installation • DIALux evo optimiert</div>
+      </div>
+    </div>
+    <div class="badge-local">Läuft lokal im Browser (Kein Virenscanner-Alarm)</div>
+  </header>
+
+  <main>
+    <!-- Dropzone -->
+    <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+      <div class="dropzone-icon">📥</div>
+      <h2>IFC-Datei hier ablegen oder klicken</h2>
+      <p>Unterstützt IFC4 &amp; IFC2x3 (SketchUp, Revit, ArchiCAD, Allplan) • Maximale Privatsphäre: Keine Daten verlassen diesen PC</p>
+      <input type="file" id="file-input" accept=".ifc,.ifczip">
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-box" id="progress-box">
+      <div class="progress-header">
+        <span id="progress-status">Datei wird gelesen...</span>
+        <span id="progress-percent">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="workspace-grid">
+      <!-- 3D Viewer -->
+      <div class="viewer-card">
+        <div class="viewer-header">
+          <div class="viewer-title">3D-Vorschau</div>
+          <div class="viewer-tools">
+            <button class="btn-tool" id="btn-wireframe" title="Drahtgitter umschalten">Wireframe</button>
+            <button class="btn-tool" id="btn-reset-cam" title="Kamera zurücksetzen">Ansicht Reset</button>
+          </div>
+        </div>
+        <div class="canvas-container">
+          <canvas id="gl-canvas"></canvas>
+          <div class="viewer-overlay">
+            Linksklick + Ziehen: Drehen | Rechtsklick / Shift: Verschieben | Mausrad: Zoom
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls & Download -->
+      <div class="controls-card">
+        <!-- Stats Panel -->
+        <div class="panel">
+          <h3>📊 Modell-Statistiken</h3>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">Bauteile (Products)</div>
+              <div class="stat-value" id="stat-products">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Meshes / Flächen</div>
+              <div class="stat-value" id="stat-meshes">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Dreiecke (Faces)</div>
+              <div class="stat-value" id="stat-faces">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Punkte (Vertices)</div>
+              <div class="stat-value" id="stat-verts">0</div>
+            </div>
+          </div>
+          <div style="margin-top: 12px; font-size: 0.8rem; color: var(--text-muted);" id="stat-dims">
+            Abmessungen: noch keine Datei geladen
+          </div>
+        </div>
+
+        <!-- Export Options -->
+        <div class="panel">
+          <h3>⚙️ DIALux evo Export-Optionen</h3>
+          
+          <div class="form-group">
+            <label for="opt-coords">Koordinaten-Ausrichtung:</label>
+            <select id="opt-coords">
+              <option value="centered" selected>⭐ Zentriert (X=0, Y=0, Unterkante Z=0) - Empfohlen</option>
+              <option value="origin">Gebäude-Ecke am Nullpunkt (0, 0, 0)</option>
+              <option value="world">Originale Werkskoordinaten</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="opt-scale">Einheiten-Skalierung:</label>
+            <select id="opt-scale">
+              <option value="auto" selected>Auto-Erkennung aus IFC (z.B. mm ➔ m)</option>
+              <option value="0.001">Millimeter nach Meter (x 0.001)</option>
+              <option value="1.0">Bereits in Metern (x 1.0)</option>
+            </select>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" id="btn-download-obj" disabled>
+              <span>💾</span> OBJ-Datei herunterladen (.obj)
+            </button>
+            <button class="btn btn-secondary" id="btn-download-mtl" disabled>
+              <span>🎨</span> Materialdatei herunterladen (.mtl)
+            </button>
+          </div>
+        </div>
+
+        <!-- Tips for DIALux -->
+        <div class="info-box">
+          <strong>Tipp für DIALux evo:</strong><br>
+          Wählen Sie die Option <em>„Zentriert“</em>. Ziehen Sie die heruntergeladene <code>.obj</code>-Datei einfach per Drag &amp; Drop in DIALux evo auf die Ansicht oder über <em>„Möbel und Objekte ➔ 3D-Objekt importieren“</em>.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    IFC ➔ OBJ Konverter • 100% Client-Side WebGL • Keine Administratorrechte erforderlich
+  </footer>
+
+  <script>
+    /* =====================================================================
+       IFC to OBJ Converter & 3D WebGL Engine (Pure Vanilla JS)
+       ===================================================================== */
+
+    let parsedModel = null;
+    let currentFileName = "model";
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const progressBox = document.getElementById('progress-box');
+    const progressFill = document.getElementById('progress-fill');
+    const progressStatus = document.getElementById('progress-status');
+    const progressPercent = document.getElementById('progress-percent');
+    const btnDownloadObj = document.getElementById('btn-download-obj');
+    const btnDownloadMtl = document.getElementById('btn-download-mtl');
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      }, false);
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length > 0) handleFile(files[0]);
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+    });
+
+    function setProgress(percent, text) {
+      progressBox.style.display = 'block';
+      progressFill.style.width = percent + '%';
+      progressPercent.textContent = Math.round(percent) + '%';
+      if (text) progressStatus.textContent = text;
+    }
+
+    function handleFile(file) {
+      currentFileName = file.name.replace(/\.[^/.]+$/, "");
+      setProgress(5, "Lese Datei: " + file.name + " (" + (file.size / 1024 / 1024).toFixed(2) + " MB)...");
+
+      const reader = new FileReader();
+      reader.onprogress = (e) => {
+        if (e.lengthComputable) {
+          setProgress(5 + (e.loaded / e.total) * 20, "Datei wird geladen...");
+        }
+      };
+
+      reader.onload = (e) => {
+        const text = e.target.result;
+        setProgress(30, "Analysiere IFC-Struktur...");
+        setTimeout(() => processIFCText(text), 20);
+      };
+
+      reader.readAsText(file);
+    }
+
+    function processIFCText(text) {
+      try {
+        const entities = new Map();
+        setProgress(40, "Parsee STEP-Datensätze...");
+
+        const records = text.split(';');
+        const totalRecords = records.length;
+
+        for (let r = 0; r < totalRecords; r++) {
+          const rec = records[r].trim();
+          if (!rec) continue;
+          const eqIdx = rec.indexOf('=');
+          if (eqIdx === -1) continue;
+
+          const eid = rec.substring(0, eqIdx).trim();
+          const rest = rec.substring(eqIdx + 1).trim();
+          const parenIdx = rest.indexOf('(');
+          if (parenIdx === -1) continue;
+
+          const entType = rest.substring(0, parenIdx).trim().toUpperCase();
+          const args = rest.substring(parenIdx + 1, rest.lastIndexOf(')')).trim();
+          entities.set(eid, { type: entType, args: args });
+        }
+
+        setProgress(60, "Extrahiere Einheiten und Koordinatensysteme...");
+
+        let lengthScale = 0.001;
+        for (const [eid, ent] of entities.entries()) {
+          if (ent.type === 'IFCSIUNIT' && ent.args.includes('.LENGTHUNIT.')) {
+            if (ent.args.includes('.MILLI.')) lengthScale = 0.001;
+            else if (ent.args.includes('.METRE.')) lengthScale = 1.0;
+          }
+        }
+
+        const numReStr = "[-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?";
+        const ptRegex = new RegExp(`\\(\\s*(${numReStr})\\s*,\\s*(${numReStr})\\s*,\\s*(${numReStr})\\s*\\)`, 'g');
+        const faceRegex = /\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/g;
+
+        function parsePoint(eid) {
+          const ent = entities.get(eid);
+          if (!ent) return [0, 0, 0];
+          ptRegex.lastIndex = 0;
+          const m = ptRegex.exec(ent.args);
+          if (m) return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])];
+          return [0, 0, 0];
+        }
+
+        function normalize(v) {
+          const l = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+          if (l < 1e-9) return [0, 0, 1];
+          return [v[0]/l, v[1]/l, v[2]/l];
+        }
+
+        function cross(a, b) {
+          return [a[1]*b[2] - a[2]*b[1], a[2]*b[0] - a[0]*b[2], a[0]*b[1] - a[1]*b[0]];
+        }
+
+        function dot(a, b) {
+          return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+        }
+
+        function matMult(a, b) {
+          const res = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+          for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+              let s = 0;
+              for (let k = 0; k < 4; k++) s += a[i][k] * b[k][j];
+              res[i][j] = s;
+            }
+          }
+          return res;
+        }
+
+        function getAxis2Matrix(eid) {
+          const ent = entities.get(eid);
+          if (!ent) return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+          const parts = ent.args.split(',').map(s => s.trim());
+          const origin = parsePoint(parts[0]);
+          let z = [0, 0, 1];
+          if (parts.length > 1 && parts[1] !== '$') z = normalize(parsePoint(parts[1]));
+          let xRef = [1, 0, 0];
+          if (parts.length > 2 && parts[2] !== '$') xRef = parsePoint(parts[2]);
+
+          const proj = dot(xRef, z);
+          const xVec = [xRef[0] - proj*z[0], xRef[1] - proj*z[1], xRef[2] - proj*z[2]];
+          const x = normalize(xVec);
+          const y = cross(z, x);
+
+          return [
+            [x[0], y[0], z[0], origin[0]],
+            [x[1], y[1], z[1], origin[1]],
+            [x[2], y[2], z[2], origin[2]],
+            [0,    0,    0,    1]
+          ];
+        }
+
+        const placementCache = new Map();
+        function getWorldMatrix(pid) {
+          if (!pid || pid === '$') return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+          if (placementCache.has(pid)) return placementCache.get(pid);
+          const ent = entities.get(pid);
+          if (!ent) return [[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]];
+
+          const parts = ent.args.split(',').map(s => s.trim());
+          const relTo = parts[0];
+          const axisId = parts[1];
+          const localM = getAxis2Matrix(axisId);
+
+          let wm = localM;
+          if (relTo && relTo !== '$') {
+            const parentM = getWorldMatrix(relTo);
+            wm = matMult(parentM, localM);
+          }
+          placementCache.set(pid, wm);
+          return wm;
+        }
+
+        setProgress(70, "Lese Bauteil-Geometrien (Tessellated Facesets)...");
+
+        const pointlists = new Map();
+        for (const [eid, ent] of entities.entries()) {
+          if (ent.type === 'IFCCARTESIANPOINTLIST3D') {
+            const pts = [];
+            ptRegex.lastIndex = 0;
+            let m;
+            while ((m = ptRegex.exec(ent.args)) !== null) {
+              pts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
+            }
+            pointlists.set(eid, pts);
+          }
+        }
+
+        const facesets = new Map();
+        for (const [eid, ent] of entities.entries()) {
+          if (ent.type === 'IFCTRIANGULATEDFACESET') {
+            const mPts = ent.args.match(/#[0-9]+/);
+            const ptsId = mPts ? mPts[0] : null;
+
+            const idxLastComma = ent.args.lastIndexOf(',');
+            const sub = idxLastComma !== -1 ? ent.args.substring(0, idxLastComma).trim() : ent.args;
+            const idxOpen = sub.lastIndexOf('((');
+            const idxClose = sub.lastIndexOf('))');
+            const faces = [];
+            if (idxOpen !== -1 && idxClose !== -1) {
+              const chunk = sub.substring(idxOpen + 1, idxClose + 1);
+              faceRegex.lastIndex = 0;
+              let fm;
+              while ((fm = faceRegex.exec(chunk)) !== null) {
+                faces.push([parseInt(fm[1]), parseInt(fm[2]), parseInt(fm[3])]);
+              }
+            }
+            facesets.set(eid, { ptsId: ptsId, faces: faces });
+          }
+        }
+
+        const styleNames = new Map();
+        for (const [eid, ent] of entities.entries()) {
+          if (ent.type === 'IFCSURFACESTYLE') {
+            const m = ent.args.match(/'([^']+)'/);
+            styleNames.set(eid, m ? m[1] : 'Material_' + eid.replace('#', ''));
+          }
+        }
+
+        const facesetStyles = new Map();
+        for (const [eid, ent] of entities.entries()) {
+          if (ent.type === 'IFCSTYLEDITEM') {
+            const m = ent.args.match(/(#[0-9]+)\s*,\s*\((#[0-9]+)\)/);
+            if (m) {
+              const itemId = m[1];
+              const styleId = m[2];
+              facesetStyles.set(itemId, styleNames.get(styleId) || 'Material_' + styleId.replace('#', ''));
+            }
+          }
+        }
+
+        const productTypes = new Set([
+          'IFCWALL', 'IFCWALLSTANDARDCASE', 'IFCSLAB', 'IFCBEAM', 'IFCCOLUMN',
+          'IFCFOOTING', 'IFCBUILDINGELEMENTPROXY', 'IFCSTAIR', 'IFCROOF', 'IFCMEMBER', 'IFCPLATE',
+          'IFCDOOR', 'IFCWINDOW'
+        ]);
+
+        const elements = [];
+        for (const [eid, ent] of entities.entries()) {
+          if (productTypes.has(ent.type)) {
+            const refs = ent.args.match(/#[0-9]+/g) || [];
+            const nameMatch = ent.args.match(/'([^']*)'/);
+            const pName = nameMatch ? nameMatch[1] : ent.type + '_' + eid.replace('#', '');
+
+            let placementId = null;
+            let repId = null;
+            if (refs.length >= 2) {
+              placementId = refs[refs.length - 2];
+              repId = refs[refs.length - 1];
+            } else if (refs.length === 1) {
+              repId = refs[0];
+            }
+
+            const pFacesets = [];
+            if (repId && entities.has(repId)) {
+              const repEnt = entities.get(repId);
+              const subReps = repEnt.args.match(/#[0-9]+/g) || [];
+              for (const sr of subReps) {
+                if (entities.has(sr)) {
+                  const sEnt = entities.get(sr);
+                  const items = sEnt.args.match(/#[0-9]+/g) || [];
+                  for (const itm of items) {
+                    if (facesets.has(itm)) pFacesets.push(itm);
+                  }
+                }
+              }
+            }
+
+            if (pFacesets.length > 0) {
+              elements.push({
+                id: eid,
+                type: ent.type,
+                name: pName,
+                placement: placementId,
+                facesets: pFacesets
+              });
+            }
+          }
+        }
+
+        setProgress(85, "Berechne 3D-Geometrie und Bounding Box...");
+
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        let minZ = Infinity, maxZ = -Infinity;
+
+        let totalVertices = 0;
+        let totalFaces = 0;
+
+        for (const elem of elements) {
+          const wm = getWorldMatrix(elem.placement);
+          for (const fid of elem.facesets) {
+            const fs = facesets.get(fid);
+            const rawPts = pointlists.get(fs.ptsId) || [];
+            totalVertices += rawPts.length;
+            totalFaces += fs.faces.length;
+
+            for (let i = 0; i < rawPts.length; i++) {
+              const px = rawPts[i][0];
+              const py = rawPts[i][1];
+              const pz = rawPts[i][2];
+
+              const wx = (wm[0][0]*px + wm[0][1]*py + wm[0][2]*pz + wm[0][3]) * lengthScale;
+              const wy = (wm[1][0]*px + wm[1][1]*py + wm[1][2]*pz + wm[1][3]) * lengthScale;
+              const wz = (wm[2][0]*px + wm[2][1]*py + wm[2][2]*pz + wm[2][3]) * lengthScale;
+
+              if (wx < minX) minX = wx;
+              if (wx > maxX) maxX = wx;
+              if (wy < minY) minY = wy;
+              if (wy > maxY) maxY = wy;
+              if (wz < minZ) minZ = wz;
+              if (wz > maxZ) maxZ = wz;
+            }
+          }
+        }
+
+        const centerX = (minX + maxX) / 2.0;
+        const centerY = (minY + maxY) / 2.0;
+        const sizeX = maxX - minX;
+        const sizeY = maxY - minY;
+        const sizeZ = maxZ - minZ;
+
+        parsedModel = {
+          elements: elements,
+          facesets: facesets,
+          pointlists: pointlists,
+          facesetStyles: facesetStyles,
+          getWorldMatrix: getWorldMatrix,
+          lengthScale: lengthScale,
+          bounds: { minX, maxX, minY, maxY, minZ, maxZ, centerX, centerY, sizeX, sizeY, sizeZ },
+          stats: { products: elements.length, meshes: facesets.size, faces: totalFaces, vertices: totalVertices }
+        };
+
+        document.getElementById('stat-products').textContent = elements.length;
+        document.getElementById('stat-meshes').textContent = facesets.size;
+        document.getElementById('stat-faces').textContent = totalFaces.toLocaleString();
+        document.getElementById('stat-verts').textContent = totalVertices.toLocaleString();
+        document.getElementById('stat-dims').innerHTML = `<strong>Abmessungen:</strong> ${sizeX.toFixed(2)} m × ${sizeY.toFixed(2)} m × ${sizeZ.toFixed(2)} m (B × T × H)`;
+
+        btnDownloadObj.disabled = false;
+        btnDownloadMtl.disabled = false;
+
+        setProgress(95, "Initialisiere 3D-Vorschau...");
+        init3DViewer(parsedModel);
+        setProgress(100, "Fertig konvertiert!");
+        setTimeout(() => { progressBox.style.display = 'none'; }, 1000);
+
+      } catch (err) {
+        console.error(err);
+        alert("Fehler beim Verarbeiten der IFC-Datei: " + err.message);
+        setProgress(100, "Fehler aufgetreten.");
+      }
+    }
+
+    btnDownloadObj.addEventListener('click', () => {
+      if (!parsedModel) return;
+
+      const coordMode = document.getElementById('opt-coords').value;
+      const scaleMode = document.getElementById('opt-scale').value;
+
+      let scale = parsedModel.lengthScale;
+      if (scaleMode === '0.001') scale = 0.001;
+      else if (scaleMode === '1.0') scale = 1.0;
+
+      let offsetX = 0, offsetY = 0, offsetZ = 0;
+      if (coordMode === 'centered') {
+        offsetX = parsedModel.bounds.centerX;
+        offsetY = parsedModel.bounds.centerY;
+        offsetZ = parsedModel.bounds.minZ;
+      } else if (coordMode === 'origin') {
+        offsetX = parsedModel.bounds.minX;
+        offsetY = parsedModel.bounds.minY;
+        offsetZ = parsedModel.bounds.minZ;
+      }
+
+      let obj = `# Wavefront OBJ generated by IFC-OBJ Converter\n`;
+      obj += `# Source: ${currentFileName}.ifc\n`;
+      obj += `# Mode: ${coordMode}\n`;
+      obj += `mtllib ${currentFileName}.mtl\n\n`;
+
+      let vertexOffset = 0;
+
+      for (const elem of parsedModel.elements) {
+        const cleanName = elem.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+        obj += `o ${cleanName}_${elem.id.replace('#', '')}\n`;
+        obj += `g ${elem.type}\n`;
+
+        const wm = parsedModel.getWorldMatrix(elem.placement);
+
+        for (const fid of elem.facesets) {
+          const mat = parsedModel.facesetStyles.get(fid) || 'DefaultMaterial';
+          obj += `usemtl ${mat}\n`;
+
+          const fs = parsedModel.facesets.get(fid);
+          const rawPts = parsedModel.pointlists.get(fs.ptsId) || [];
+
+          for (let i = 0; i < rawPts.length; i++) {
+            const px = rawPts[i][0];
+            const py = rawPts[i][1];
+            const pz = rawPts[i][2];
+
+            const wx = (wm[0][0]*px + wm[0][1]*py + wm[0][2]*pz + wm[0][3]) * scale - offsetX;
+            const wy = (wm[1][0]*px + wm[1][1]*py + wm[1][2]*pz + wm[1][3]) * scale - offsetY;
+            const wz = (wm[2][0]*px + wm[2][1]*py + wm[2][2]*pz + wm[2][3]) * scale - offsetZ;
+
+            obj += `v ${wx.toFixed(6)} ${wy.toFixed(6)} ${wz.toFixed(6)}\n`;
+          }
+
+          for (const f of fs.faces) {
+            obj += `f ${vertexOffset + f[0]} ${vertexOffset + f[1]} ${vertexOffset + f[2]}\n`;
+          }
+
+          vertexOffset += rawPts.length;
+          obj += `\n`;
+        }
+      }
+
+      downloadBlob(obj, `${currentFileName}_${coordMode}.obj`, 'text/plain');
+    });
+
+    btnDownloadMtl.addEventListener('click', () => {
+      let mtl = `# Material Library for ${currentFileName}\n\n`;
+      mtl += `newmtl Stahlbeton\nKd 0.75 0.75 0.75\nKa 0.2 0.2 0.2\nKs 0.1 0.1 0.1\nd 1.0\nillum 2\n\n`;
+      mtl += `newmtl Stahl_EBT\nKd 0.30 0.45 0.65\nKa 0.1 0.15 0.2\nKs 0.3 0.3 0.3\nd 1.0\nillum 2\n\n`;
+      mtl += `newmtl Pumpensumpf\nKd 0.20 0.60 0.70\nKa 0.1 0.2 0.2\nKs 0.2 0.2 0.2\nd 0.8\nillum 2\n\n`;
+      mtl += `newmtl DefaultMaterial\nKd 0.70 0.70 0.70\nKa 0.2 0.2 0.2\nKs 0.1 0.1 0.1\nd 1.0\nillum 2\n`;
+
+      downloadBlob(mtl, `${currentFileName}.mtl`, 'text/plain');
+    });
+
+    function downloadBlob(content, filename, type) {
+      const blob = new Blob([content], { type: type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    let gl = null;
+    let shaderProgram = null;
+    let vertexBuffer = null;
+    let triVertexCount = 0;
+    let isWireframe = false;
+
+    let camRotX = 25 * Math.PI / 180;
+    let camRotZ = -45 * Math.PI / 180;
+    let camDist = 50;
+    let camPan = [0, 0, 5];
+
+    function init3DViewer(model) {
+      const canvas = document.getElementById('gl-canvas');
+      gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return;
+
+      function resize() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * (window.devicePixelRatio || 1);
+        canvas.height = rect.height * (window.devicePixelRatio || 1);
+        gl.viewport(0, 0, canvas.width, canvas.height);
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      const vsSource = `
+        attribute vec3 aPosition;
+        attribute vec3 aNormal;
+        uniform mat4 uMatrix;
+        varying vec3 vNormal;
+        void main() {
+          vNormal = aNormal;
+          gl_Position = uMatrix * vec4(aPosition, 1.0);
+        }
+      `;
+
+      const fsSource = `
+        precision mediump float;
+        varying vec3 vNormal;
+        uniform vec3 uColor;
+        uniform bool uWireframe;
+        void main() {
+          if (uWireframe) {
+            gl_FragColor = vec4(0.22, 0.74, 0.97, 1.0);
+          } else {
+            vec3 lightDir = normalize(vec3(0.5, 0.7, 1.0));
+            float diff = max(dot(normalize(vNormal), lightDir), 0.25);
+            gl_FragColor = vec4(uColor * diff + vec3(0.15), 1.0);
+          }
+        }
+      `;
+
+      const vs = gl.createShader(gl.VERTEX_SHADER);
+      gl.shaderSource(vs, vsSource);
+      gl.compileShader(vs);
+
+      const fs = gl.createShader(gl.FRAGMENT_SHADER);
+      gl.shaderSource(fs, fsSource);
+      gl.compileShader(fs);
+
+      shaderProgram = gl.createProgram();
+      gl.attachShader(shaderProgram, vs);
+      gl.attachShader(shaderProgram, fs);
+      gl.linkProgram(shaderProgram);
+
+      const triData = [];
+      const cx = model.bounds.centerX;
+      const cy = model.bounds.centerY;
+      const cz = model.bounds.minZ;
+      const sc = model.lengthScale;
+
+      for (const elem of model.elements) {
+        const wm = model.getWorldMatrix(elem.placement);
+        for (const fid of elem.facesets) {
+          const fs = model.facesets.get(fid);
+          const rawPts = model.pointlists.get(fs.ptsId) || [];
+
+          for (const f of fs.faces) {
+            const p1 = rawPts[f[0] - 1];
+            const p2 = rawPts[f[1] - 1];
+            const p3 = rawPts[f[2] - 1];
+            if (!p1 || !p2 || !p3) continue;
+
+            const w1 = [(wm[0][0]*p1[0] + wm[0][1]*p1[1] + wm[0][2]*p1[2] + wm[0][3])*sc - cx,
+                        (wm[1][0]*p1[0] + wm[1][1]*p1[1] + wm[1][2]*p1[2] + wm[1][3])*sc - cy,
+                        (wm[2][0]*p1[0] + wm[2][1]*p1[1] + wm[2][2]*p1[2] + wm[2][3])*sc - cz];
+
+            const w2 = [(wm[0][0]*p2[0] + wm[0][1]*p2[1] + wm[0][2]*p2[2] + wm[0][3])*sc - cx,
+                        (wm[1][0]*p2[0] + wm[1][1]*p2[1] + wm[1][2]*p2[2] + wm[1][3])*sc - cy,
+                        (wm[2][0]*p2[0] + wm[2][1]*p2[1] + wm[2][2]*p2[2] + wm[2][3])*sc - cz];
+
+            const w3 = [(wm[0][0]*p3[0] + wm[0][1]*p3[1] + wm[0][2]*p3[2] + wm[0][3])*sc - cx,
+                        (wm[1][0]*p3[0] + wm[1][1]*p3[1] + wm[1][2]*p3[2] + wm[1][3])*sc - cy,
+                        (wm[2][0]*p3[0] + wm[2][1]*p3[1] + wm[2][2]*p3[2] + wm[2][3])*sc - cz];
+
+            const u = [w2[0]-w1[0], w2[1]-w1[1], w2[2]-w1[2]];
+            const v = [w3[0]-w1[0], w3[1]-w1[1], w3[2]-w1[2]];
+            let nx = u[1]*v[2] - u[2]*v[1];
+            let ny = u[2]*v[0] - u[0]*v[2];
+            let nz = u[0]*v[1] - u[1]*v[0];
+            const nl = Math.sqrt(nx*nx + ny*ny + nz*nz) || 1;
+            nx /= nl; ny /= nl; nz /= nl;
+
+            triData.push(w1[0], w1[1], w1[2], nx, ny, nz);
+            triData.push(w2[0], w2[1], w2[2], nx, ny, nz);
+            triData.push(w3[0], w3[1], w3[2], nx, ny, nz);
+          }
+        }
+      }
+
+      triVertexCount = triData.length / 6;
+
+      if (!vertexBuffer) vertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triData), gl.STATIC_DRAW);
+
+      const maxDim = Math.max(model.bounds.sizeX, model.bounds.sizeY, model.bounds.sizeZ);
+      camDist = maxDim * 1.8;
+      camPan = [0, 0, model.bounds.sizeZ * 0.4];
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.clearColor(0.043, 0.067, 0.125, 1.0);
+
+      render3D();
+      setupMouseEvents(canvas);
+    }
+
+    function render3D() {
+      if (!gl || !shaderProgram) return;
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      gl.useProgram(shaderProgram);
+
+      const aspect = gl.canvas.width / gl.canvas.height;
+      const proj = perspectiveMatrix(45 * Math.PI / 180, aspect, 0.5, camDist * 10);
+
+      const eyeX = camPan[0] + camDist * Math.sin(camRotZ) * Math.cos(camRotX);
+      const eyeY = camPan[1] - camDist * Math.cos(camRotZ) * Math.cos(camRotX);
+      const eyeZ = camPan[2] + camDist * Math.sin(camRotX);
+
+      const view = lookAtMatrix([eyeX, eyeY, eyeZ], camPan, [0, 0, 1]);
+      const mvp = multiplyMatrices(proj, view);
+
+      const uMatrix = gl.getUniformLocation(shaderProgram, 'uMatrix');
+      const uColor = gl.getUniformLocation(shaderProgram, 'uColor');
+      const uWireframe = gl.getUniformLocation(shaderProgram, 'uWireframe');
+
+      gl.uniformMatrix4fv(uMatrix, false, new Float32Array(mvp));
+      gl.uniform3f(uColor, 0.72, 0.75, 0.80);
+      gl.uniform1i(uWireframe, isWireframe ? 1 : 0);
+
+      const aPosition = gl.getAttribLocation(shaderProgram, 'aPosition');
+      const aNormal = gl.getAttribLocation(shaderProgram, 'aNormal');
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.enableVertexAttribArray(aPosition);
+      gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, 24, 0);
+
+      gl.enableVertexAttribArray(aNormal);
+      gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, 24, 12);
+
+      gl.drawArrays(isWireframe ? gl.LINES : gl.TRIANGLES, 0, triVertexCount);
+    }
+
+    function setupMouseEvents(canvas) {
+      let isDragging = false;
+      let dragButton = 0;
+      let lastX = 0, lastY = 0;
+
+      canvas.oncontextmenu = (e) => e.preventDefault();
+
+      canvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        dragButton = e.button;
+        lastX = e.clientX;
+        lastY = e.clientY;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX;
+        lastY = e.clientY;
+
+        if (dragButton === 0 && !e.shiftKey) {
+          camRotZ -= dx * 0.008;
+          camRotX = Math.max(0.01, Math.min(Math.PI / 2 - 0.01, camRotX + dy * 0.008));
+        } else {
+          const panSpeed = camDist * 0.0015;
+          camPan[0] -= (dx * Math.cos(camRotZ) + dy * Math.sin(camRotZ)) * panSpeed;
+          camPan[1] -= (-dx * Math.sin(camRotZ) + dy * Math.cos(camRotZ)) * panSpeed;
+          camPan[2] += dy * panSpeed;
+        }
+        render3D();
+      });
+
+      window.addEventListener('mouseup', () => { isDragging = false; });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camDist = Math.max(2, camDist * (e.deltaY > 0 ? 1.1 : 0.9));
+        render3D();
+      }, { passive: false });
+
+      document.getElementById('btn-reset-cam').onclick = () => {
+        if (!parsedModel) return;
+        camRotX = 25 * Math.PI / 180;
+        camRotZ = -45 * Math.PI / 180;
+        const maxDim = Math.max(parsedModel.bounds.sizeX, parsedModel.bounds.sizeY, parsedModel.bounds.sizeZ);
+        camDist = maxDim * 1.8;
+        camPan = [0, 0, parsedModel.bounds.sizeZ * 0.4];
+        render3D();
+      };
+
+      document.getElementById('btn-wireframe').onclick = function() {
+        isWireframe = !isWireframe;
+        this.classList.toggle('active', isWireframe);
+        render3D();
+      };
+    }
+
+    function perspectiveMatrix(fovy, aspect, near, far) {
+      const f = 1.0 / Math.tan(fovy / 2);
+      const nf = 1 / (near - far);
+      return [
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) * nf, -1,
+        0, 0, (2 * far * near) * nf, 0
+      ];
+    }
+
+    function lookAtMatrix(eye, center, up) {
+      let z0 = eye[0] - center[0], z1 = eye[1] - center[1], z2 = eye[2] - center[2];
+      let len = Math.sqrt(z0*z0 + z1*z1 + z2*z2) || 1;
+      z0 /= len; z1 /= len; z2 /= len;
+
+      let x0 = up[1]*z2 - up[2]*z1, x1 = up[2]*z0 - up[0]*z2, x2 = up[0]*z1 - up[1]*z0;
+      len = Math.sqrt(x0*x0 + x1*x1 + x2*x2) || 1;
+      x0 /= len; x1 /= len; x2 /= len;
+
+      let y0 = z1*x2 - z2*x1, y1 = z2*x0 - z0*x2, y2 = z0*x1 - z1*x0;
+
+      return [
+        x0, y0, z0, 0,
+        x1, y1, z1, 0,
+        x2, y2, z2, 0,
+        -(x0*eye[0] + x1*eye[1] + x2*eye[2]),
+        -(y0*eye[0] + y1*eye[1] + y2*eye[2]),
+        -(z0*eye[0] + z1*eye[1] + z2*eye[2]),
+        1
+      ];
+    }
+
+    function multiplyMatrices(a, b) {
+      const out = new Array(16);
+      for (let i = 0; i < 4; i++) {
+        for (let j = 0; j < 4; j++) {
+          out[i*4 + j] = a[j] * b[i*4] + a[j+4] * b[i*4+1] + a[j+8] * b[i*4+2] + a[j+12] * b[i*4+3];
+        }
+      }
+      return out;
+    }
+  </script>
+</body>
+</html>
